@@ -1,0 +1,8 @@
+{
+    "name": "ai-agent",
+    "version": "1.0.0",
+    "description": "A C++ project for AI agent for automating tasks",
+    "dependencies": [
+        "opencv"
+    ]
+}
