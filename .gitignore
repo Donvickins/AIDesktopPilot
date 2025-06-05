@@ -1,1 +1,6 @@
 vcpkg_installed/
+aiagentenv/
+cpp_module/build
+build/
+.vscode/
+dependencies/
