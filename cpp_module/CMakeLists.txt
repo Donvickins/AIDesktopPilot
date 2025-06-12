@@ -1,20 +1,13 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project(ai-agent)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_opencv_world ON)
-# 3. Disable parts of OpenCV you don't need to speed up the build.
-set(BUILD_TESTS OFF)
-set(BUILD_PERF_TESTS OFF)
-set(BUILD_EXAMPLES OFF)
+project(ai-agent CXX)
 
-set(DEP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dependencies)
-
-add_subdirectory(${DEP_DIR}/opencv)
+add_subdirectory(helper)
 
 add_executable(${PROJECT_NAME} agent.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
