@@ -1,6 +1,10 @@
 vcpkg_installed/
 aiagentenv/
 cpp_module/build
+cpp_module/dependencies/
+cpp_module/models
+cpp_module/ai-agent.exe
+cpp_module/agent_webcam.exe
 build/
 .vscode/
 dependencies/

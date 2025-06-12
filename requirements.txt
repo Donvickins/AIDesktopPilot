@@ -10,3 +10,4 @@ torch==2.2.1
 ultralytics==8.0.196 
 pyaudio==0.2.14 
 numpy==1.26.4
+ultralytics==8.0.196
