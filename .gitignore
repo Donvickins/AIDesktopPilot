@@ -1,10 +1,13 @@
 vcpkg_installed/
+cpp_module/vcpkg_installed/
 aiagentenv/
 cpp_module/build
 cpp_module/dependencies/
-cpp_module/models
+cpp_module/models/
 cpp_module/ai-agent.exe
 cpp_module/agent_webcam.exe
 build/
 .vscode/
 dependencies/
+cpp_module/opencv_kernel/
+cpp_module/kernel_cache/

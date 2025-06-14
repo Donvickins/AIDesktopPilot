@@ -1,19 +1,20 @@
 #include "dxdiag.hpp"
 #include "yolo.hpp"
-
-#define LOG(...) std::cout << "[INFO] " << __VA_ARGS__ << std::endl
-
-// YOLOv8 parameters -
+#include "utils.hpp"
+#include <cstdlib>
 
 cv::dnn::Net yolo_net;
 std::vector<std::string> class_names_vec;
 
 int main()
 {
-    LOG("Starting continuous screen capture with Desktop Duplication API...");
+    LOG("Starting continuous screen capture...");
     LOG("Press Ctrl+C or ESC in the window to stop.");
 
-    const int targetFps = 60;
+    if (!setUpEnv())
+        return -1;
+
+    const int targetFps = 30;
     const int frameDelayMs = 1000 / targetFps;
     long long frameCount = 0;
     bool quit = false;
@@ -27,58 +28,42 @@ int main()
     cv::setWindowProperty(windowName, cv::WND_PROP_ASPECT_RATIO, cv::WINDOW_KEEPRATIO);
     cv::resizeWindow(windowName, 1280, 720);
 
-    std::string input;
+    cv::ocl::setUseOpenCL(true);
 
-    LOG("Loading YOLO11l model from: " << YOLO_MODEL_PATH);
-    try
-    {
-        yolo_net = cv::dnn::readNetFromONNX(YOLO_MODEL_PATH);
+    HARDWARE_INFO hw_info;
 
-        if (yolo_net.empty())
-        {
-            std::cerr << "Error: Failed to load YOLO model." << std::endl;
-            return -1;
-        }
-        // Check if there is Cuda enable device
-        if (cv::cuda::getCudaEnabledDeviceCount() > 0)
-        {
-            LOG("Cuda is Supported: Using Cuda");
-            yolo_net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
-            yolo_net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
-        }
-        else
-        {
-            LOG("Cuda is not Supported: Using CPU");
-            yolo_net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
-            yolo_net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
-        }
-
-        LOG("YOLO11l model loaded successfully.");
-    }
-    catch (const cv::Exception &e)
-    {
-        std::cerr << "Failed to load YOLO model: " << e.what() << std::endl;
-        return -1;
-    }
-
-    LOG("Loading class names from: " << CLASS_NAMES_PATH);
-    if (!loadClassNames(CLASS_NAMES_PATH, class_names_vec) || class_names_vec.empty())
-    {
-        std::cerr << "Error: Failed to load class names or class names file is empty." << std::endl;
-        return -1;
-    }
-
-    LOG("Class names loaded: " << class_names_vec.size() << " classes.");
+    detectSystemArch(hw_info);
+    // Log detected hardware
+    LOG("Hardware Detection Summary:");
+    LOG("CUDA Available: " << (hw_info.has_cuda ? "Yes" : "No"));
+    LOG("OpenCL Available: " << (hw_info.has_opencl ? "Yes" : "No"));
+    LOG("AMD GPU: " << (hw_info.has_amd ? "Yes" : "No"));
+    LOG("Intel GPU: " << (hw_info.has_intel ? "Yes" : "No"));
+    LOG("NVIDIA GPU: " << (hw_info.has_nvidia ? "Yes" : "No"));
 
     while (!quit)
     {
         DXGIContext ctx;
+        LOG("Attempting to initialize DXGI...");
         if (!InitializeDXGI(ctx))
         {
-            std::cerr << "Initialization failed. Retrying in 2 seconds..." << std::endl;
+            LOG_ERR("DXGI Initialization failed. Retrying in 2 seconds...");
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
         }
+        LOG("DXGI Initialized successfully.");
+
+        // Re-initialize YOLO network after DXGI is ready
+        // Clear previous class names before loading new ones to avoid accumulation if setup is retried.
+        class_names_vec.clear();
+        if (!setupYoloNetwork(yolo_net, YOLO_MODEL_PATH, CLASS_NAMES_PATH, class_names_vec, hw_info))
+        {
+            LOG_ERR("Failed to setup YOLO network. Cleaning up DXGI and retrying.");
+            CleanupDXGI(ctx); // Cleanup DXGI if YOLO setup fails
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
         int width = 0, height = 0;
         std::vector<BYTE> pixelBuffer;
         bool duplication_active = true;
@@ -97,7 +82,7 @@ int main()
 
                 if (checkHr == DXGI_ERROR_ACCESS_LOST)
                 {
-                    std::cerr << "Desktop Duplication access lost. Re-initializing..." << std::endl;
+                    LOG_ERR("Desktop Duplication access lost. Re-initializing DXGI and YOLO setup...");
                     duplication_active = false;
                     break;
                 }
@@ -105,7 +90,7 @@ int main()
                 consecutive_failures++;
                 if (consecutive_failures >= MAX_CONSECUTIVE_FAILURES)
                 {
-                    std::cerr << "Too many consecutive failures. Re-initializing..." << std::endl;
+                    LOG_ERR("Too many consecutive GetScreenPixelsDXGI failures. Re-initializing DXGI and YOLO setup...");
                     duplication_active = false;
                     break;
                 }
@@ -125,7 +110,23 @@ int main()
                 cv::cvtColor(frame, frame_bgr, cv::COLOR_BGRA2BGR);
 
                 // Process frame with YOLOv11
-                processFrameWithYOLO(frame_bgr, yolo_net, class_names_vec);
+                try
+                {
+                    processFrameWithYOLO(frame_bgr, yolo_net, class_names_vec);
+                }
+                catch (const cv::Exception &e)
+                {
+                    LOG_ERR("OpenCV error during YOLO processing: " << e.what());
+                    LOG_ERR("Attempting to re-initialize DXGI and YOLO due to OpenCV error during processing.");
+                    duplication_active = false; // Force re-initialization of DXGI and YOLO
+                    break;
+                }
+                catch (const std::exception &e)
+                {
+                    LOG_ERR("Error during YOLO processing: " << e.what());
+                    duplication_active = false; // Force re-initialization for other std exceptions too
+                    break;
+                }
 
                 if (cv::getWindowProperty(windowName, cv::WND_PROP_VISIBLE) >= 1)
                 {
@@ -160,13 +161,17 @@ int main()
                 }
             }
         }
+        LOG("Cleaning up DXGI context for this session.");
         CleanupDXGI(ctx);
-        if (!quit)
+        // yolo_net = cv::dnn::Net(); // Optionally clear the network object if it's large and reloaded.
+        // setupYoloNetwork will reassign it anyway.
+        if (!quit && !duplication_active) // If exited inner loop due to error, not user quit
         {
-            std::cerr << "Attempting to re-initialize DXGI in 2 seconds..." << std::endl;
+            LOG_ERR("DXGI session ended or failed. Attempting to re-initialize in 2 seconds...");
             std::this_thread::sleep_for(std::chrono::seconds(2));
         }
     }
     LOG("Screen capture stopped.");
+    cv::destroyAllWindows(); // Ensure OpenCV windows are closed
     return 0;
 }

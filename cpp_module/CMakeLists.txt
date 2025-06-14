@@ -11,8 +11,8 @@ add_subdirectory(helper)
 
 add_executable(${PROJECT_NAME} agent.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
-target_link_libraries(${PROJECT_NAME} PRIVATE dxdiag yolo d3d11 dxguid)
+target_link_libraries(${PROJECT_NAME} PRIVATE dxdiag yolo d3d11 dxguid utils)
 
 add_executable(agent_webcam agent_webcam.cpp)
 target_include_directories(agent_webcam PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
-target_link_libraries(agent_webcam PRIVATE yolo)
+target_link_libraries(agent_webcam PRIVATE yolo utils)

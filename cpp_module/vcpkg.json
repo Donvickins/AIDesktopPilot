@@ -5,7 +5,11 @@
   "dependencies": [
     {
       "name": "opencv",
-      "features": ["contrib"]
+      "features": [
+        "contrib",
+        "dnn",
+        "opencl"
+      ]
     }
   ],
   "default-features": [],
