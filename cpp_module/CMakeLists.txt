@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 project(ai-agent CXX)
 
@@ -16,3 +16,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE dxdiag yolo d3d11 dxguid utils)
 add_executable(agent_webcam agent_webcam.cpp)
 target_include_directories(agent_webcam PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
 target_link_libraries(agent_webcam PRIVATE yolo utils)
+
+add_executable(agent_screenshot agent_screenshot.cpp)
+target_include_directories(agent_screenshot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
+target_link_libraries(agent_screenshot PRIVATE utils dxdiag windowscodecs d3d11 dxguid)
