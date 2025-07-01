@@ -19,4 +19,4 @@ target_link_libraries(agent_webcam PRIVATE yolo utils)
 
 add_executable(agent_screenshot agent_screenshot.cpp)
 target_include_directories(agent_screenshot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/helper)
-target_link_libraries(agent_screenshot PRIVATE utils dxdiag windowscodecs d3d11 dxguid)
+target_link_libraries(agent_screenshot PRIVATE utils dxdiag yolo windowscodecs d3d11 dxguid)
